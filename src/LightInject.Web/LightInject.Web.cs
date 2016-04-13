@@ -118,7 +118,10 @@ namespace LightInject.Web
             var scopeManager = (ScopeManager)application.Context.Items["ScopeManager"];
             if (scopeManager != null)
             {
-                scopeManager.CurrentScope.Dispose();
+                if (scopeManager.CurrentScope != null)
+                {
+                    scopeManager.CurrentScope.Dispose();
+                }
             }
         }
 
