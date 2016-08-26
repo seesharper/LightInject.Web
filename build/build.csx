@@ -110,15 +110,6 @@ private void Build(string frameworkMoniker)
 	MsBuild.Build(pathToSolutionFile);
 }
 
-private void BuildDnx()
-{
-	string pathToProjectFile = Path.Combine(pathToBuildDirectory, @"DNXCORE50/Binary/LightInject.Web/project.json");
-	DNU.Build(pathToProjectFile, "DNXCORE50");
-	
-	pathToProjectFile = Path.Combine(pathToBuildDirectory, @"DNX451/Binary/LightInject.Web/project.json");
-	DNU.Build(pathToProjectFile, "DNX451");
-}
-
 private void RestoreNuGetPackages()
 {	
 	RestoreNuGetPackages("net45");
