@@ -55,6 +55,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="NuGet\LightInject.Web.nuspec" />
+    <None Include="NuGet\LightInject.Web.Source.nuspec" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
