@@ -226,7 +226,8 @@ private void Internalize(string frameworkMoniker)
 		"InterceptorInvocationInfo",
 		"CompositeInterceptor",
 		"InterceptorInfo",
-		"ProxyDefinition"		
+		"ProxyDefinition",
+		"LightInjectHttpModuleInitializer"
 		}; 
 	
 	string pathToSourceFile = Path.Combine(pathToBuildDirectory, frameworkMoniker + "/Source/LightInject.Web/LightInject.Web.cs");
