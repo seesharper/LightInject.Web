@@ -27,21 +27,30 @@ namespace LightInject.Tests
         }
                 
         [Fact]
-        public void GetInstance_InsideWebRequest_ReturnsSameInstance()
-        {                                                         
-            var mockHttpApplication = new MockHttpApplication(new LightInjectHttpModule(), false);                                    
-            mockHttpApplication.BeginRequest();
+        public void ShouldReturnSameInstanceWithinSingleRequest()
+        {
+            var mockHttpApplication = CreateWebApplication();
 
             var firstInstance = serviceContainer.GetInstance<IFoo>();
             var secondInstance = serviceContainer.GetInstance<IFoo>();
-
-            Assert.Equal(firstInstance, secondInstance);
-
             mockHttpApplication.EndRequest();
+
+            Assert.Equal(firstInstance, secondInstance);           
         }
 
+        private static MockHttpApplication CreateWebApplication()
+        {
+            var request = new HttpRequest(null, "http://tempuri.org", null);
+            var response = new HttpResponse(null);
+            HttpContext context = new HttpContext(request, response);
+            HttpContext.Current = context;
+            var mockHttpApplication = new MockHttpApplication(new LightInjectHttpModule(), false);
+            return mockHttpApplication;
+        }
+
+
         [Fact]
-        public void GetInstance_TwoDifferentRequests_ReturnsNewInstances()
+        public void ShouldReturnMultipleInstancesForMultipleRequests()
         {            
             var firstInstance = GetInstanceWithinWebRequest();
             var secondInstance = GetInstanceWithinWebRequest();
@@ -50,50 +59,44 @@ namespace LightInject.Tests
         }
 
         [Fact]
-        public void GetInstance_MultipleThreads_DoesNotThrowException()
+        public void ShouldHandleMultipleThreads()
         {
             ParallelInvoker.Invoke(10, () => GetInstanceWithinWebRequest());
         }
 
-
         [Fact]
-        public void Initialize_ModuleInitializer_DoesNotThrowException()
+        public void ShouldRegisterModule()
         {
             LightInjectHttpModuleInitializer.Initialize();
         }
 
-        [Fact]
-        public void GetInstance_WithoutBeginRequest_ThrowsMeaningfulException()
-        {
-            var mockHttpApplication = new MockHttpApplication(null, false);
-            mockHttpApplication.BeginRequest();
-            var exception = Assert.Throws<InvalidOperationException>(() => serviceContainer.GetInstance<IFoo>());
-            Assert.Contains("Unable to locate a scope manager for the current HttpRequest.", exception.Message);            
-        }
 
-        [Fact]
-        public void ShouldHandleNullApplication()
-        {
-            var mockHttpApplication = new MockHttpApplication(new LightInjectHttpModule(), true);
-            mockHttpApplication.BeginRequest();            
-            mockHttpApplication.EndRequest();
-        }
+
+        //[Fact]
+        //public void GetInstance_WithoutBeginRequest_ThrowsMeaningfulException()
+        //{
+        //    var mockHttpApplication = new MockHttpApplication(null, false);
+        //    mockHttpApplication.BeginRequest();
+        //    var exception = Assert.Throws<InvalidOperationException>(() => serviceContainer.GetInstance<IFoo>());
+        //    Assert.Contains("Unable to locate a scope manager for the current HttpRequest.", exception.Message);            
+        //}
+
+        
 
         private static IFoo GetInstanceWithinWebRequest()
         {
             serviceContainer.EnablePerWebRequestScope();
-            var mockHttpApplication = new MockHttpApplication(new LightInjectHttpModule(), false);
-            mockHttpApplication.BeginRequest();
+            var mockHttpApplication = CreateWebApplication();
+            
             IFoo firstInstance = serviceContainer.GetInstance<IFoo>();
             mockHttpApplication.EndRequest();
             mockHttpApplication.Dispose();
             return firstInstance;
-        }        
+        }
 
         public class MockHttpApplication : HttpApplication
         {
-            private static readonly object EndEventHandlerKey;
-            private static readonly object BeginEventHandlerKey;
+            private static readonly object EndEventHandlerKey;            
 
             private static readonly FieldInfo ContextField;
             private readonly IHttpModule module;
@@ -111,30 +114,13 @@ namespace LightInject.Tests
            
             static MockHttpApplication()
             {                
-                EndEventHandlerKey = typeof(HttpApplication).GetField("EventEndRequest", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
-                BeginEventHandlerKey = typeof(HttpApplication).GetField("EventBeginRequest", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+                EndEventHandlerKey = typeof(HttpApplication).GetField("EventEndRequest", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);                
                 ContextField = typeof(HttpApplication).GetField(
                     "_context",
                     BindingFlags.NonPublic | BindingFlags.Instance);
             }
            
-            public new void BeginRequest()
-            {
-                HttpContext.Current = new HttpContext(new HttpRequest(null, "http://tempuri.org", null), new HttpResponse(null));
-                SetContext(HttpContext.Current);
-                if (module != null)
-                {
-                    if (passNullAsSender)
-                    {
-                        this.Events[BeginEventHandlerKey].DynamicInvoke(null, null);
-                    }
-                    else
-                    {
-                        this.Events[BeginEventHandlerKey].DynamicInvoke(this, null);
-                    }
-                }
-            }
-
+            
             private void SetContext(HttpContext context)
             {
                 ContextField.SetValue(this, context);

@@ -21,7 +21,7 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 ******************************************************************************
-    LightInject.Web version 1.1.0
+    LightInject.Web version 2.0.0
     http://seesharper.github.io/LightInject/
     http://twitter.com/bernhardrichter
 ******************************************************************************/
@@ -59,7 +59,6 @@ namespace LightInject
 
 namespace LightInject.Web
 {
-    using System;
     using System.Web;
     using Microsoft.Web.Infrastructure.DynamicModuleHelper;
 
@@ -79,7 +78,7 @@ namespace LightInject.Web
             if (!isInitialized)
             {
                 isInitialized = true;
-                DynamicModuleUtility.RegisterModule(typeof(LightInjectHttpModule));
+                DynamicModuleUtility.RegisterModule(typeof(LightInjectHttpModule));                                
             }
         }
     }
@@ -96,8 +95,7 @@ namespace LightInject.Web
         /// <param name="context">An <see cref="HttpApplication"/> that provides access to the methods, properties, and events common to all application objects within an ASP.NET application </param>
         public void Init(HttpApplication context)
         {
-            context.BeginRequest += BeginRequest;
-            context.EndRequest += EndRequest;
+            context.EndRequest += (a, e) => PerWebRequestScopeManager.EndContextScope();
         }
 
         /// <summary>
@@ -105,34 +103,56 @@ namespace LightInject.Web
         /// </summary>
         public void Dispose()
         {
+        }          
+    }
+
+    /// <summary>
+    /// A <see cref="ScopeManager"/> that manages scope per web request.
+    /// </summary>
+    public class PerWebRequestScopeManager : ScopeManager
+    {
+        private const string Key = "LightInject.Scope";
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PerWebRequestScopeManager"/> class.        
+        /// </summary>
+        /// <param name="serviceFactory">The <see cref="IServiceFactory"/> to be associated with this <see cref="ScopeManager"/>.</param>
+        public PerWebRequestScopeManager(IServiceFactory serviceFactory) : base(serviceFactory)
+        {           
         }
 
-        private static void EndRequest(object sender, EventArgs eventArgs)
+        /// <summary>
+        /// Gets or sets the current <see cref="T:LightInject.Scope"/>.
+        /// </summary>
+        public override Scope CurrentScope
         {
-            var application = sender as HttpApplication;
-            if (application == null)
-            {
-                return;
-            }
+            get { return GetOrAddScope(); }
+            set { HttpContext.Current.Items[Key] = value; }
+        }
 
-            var scopeManager = (ScopeManager)application.Context.Items["ScopeManager"];
-            if (scopeManager != null)
+        /// <summary>
+        /// Ends the scope associated with the current <see cref="HttpContext"/>.
+        /// </summary>
+        public static void EndContextScope()
+        {
+            var scope = (Scope)HttpContext.Current.Items[Key];
+            if (scope != null)
             {
-                scopeManager.CurrentScope.Dispose();
+                scope.Dispose();
+                HttpContext.Current.Items[Key] = null;                
             }
         }
 
-        private static void BeginRequest(object sender, EventArgs eventArgs)
-        {
-            var application = sender as HttpApplication;
-            if (application == null)
+        private Scope GetOrAddScope()
+        {            
+            var scope = (Scope)HttpContext.Current.Items[Key];
+            if (scope == null)
             {
-                return;
+                scope = new Scope(this, null);
+                CurrentScope = scope;
             }
 
-            var scopeManager = new ScopeManager();
-            scopeManager.BeginScope();
-            application.Context.Items["ScopeManager"] = scopeManager;
+            return scope;
         }
     }
 
@@ -140,21 +160,18 @@ namespace LightInject.Web
     /// An <see cref="IScopeManagerProvider"/> that provides the <see cref="ScopeManager"/>
     /// used by the current <see cref="HttpRequest"/>.
     /// </summary>
-    public class PerWebRequestScopeManagerProvider : IScopeManagerProvider
+    public class PerWebRequestScopeManagerProvider : ScopeManagerProvider
     {
         /// <summary>
-        /// Returns the <see cref="ScopeManager"/> that is responsible for managing scopes.
+        /// Creates a new <see cref="T:LightInject.IScopeManager"/> instance.
         /// </summary>
-        /// <returns>The <see cref="ScopeManager"/> that is responsible for managing scopes.</returns>
-        public ScopeManager GetScopeManager()
+        /// <param name="serviceFactory">The <see cref="T:LightInject.IServiceFactory"/> to be associated with the <see cref="T:LightInject.IScopeManager"/>.</param>
+        /// <returns>
+        /// <see cref="T:LightInject.IScopeManager"/>.
+        /// </returns>
+        protected override IScopeManager CreateScopeManager(IServiceFactory serviceFactory)
         {
-            var scopeManager = (ScopeManager)HttpContext.Current.Items["ScopeManager"];
-            if (scopeManager == null)
-            {
-                throw new InvalidOperationException("Unable to locate a scope manager for the current HttpRequest. Ensure that the LightInjectHttpModule has been added.");
-            }
-
-            return scopeManager;
+            return new PerWebRequestScopeManager(serviceFactory);
         }
     }
 }
