@@ -1,4 +1,7 @@
 # Web #
+[![AppVeyor](https://img.shields.io/appveyor/ci/gruntjs/grunt.svg?maxAge=2592000)](https://ci.appveyor.com/project/seesharper/lightinject-web)
+[![NuGet](https://img.shields.io/nuget/v/LightInject.Web.svg?maxAge=2592000)]()
+[![GitHub tag](https://img.shields.io/github/tag/seesharper/LightInject.Web.svg?maxAge=2592000)]()
 
 Enables **LightInject** to be used in a web application and provides support for **PerWebRequest** scoped service instances.
 
