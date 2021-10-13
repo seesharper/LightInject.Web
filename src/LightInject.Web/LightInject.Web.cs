@@ -112,6 +112,7 @@ namespace LightInject.Web
     public class PerWebRequestScopeManager : ScopeManager
     {
         private const string Key = "LightInject.Scope";
+        private Scope DefaultScope;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PerWebRequestScopeManager"/> class.        
@@ -119,6 +120,7 @@ namespace LightInject.Web
         /// <param name="serviceFactory">The <see cref="IServiceFactory"/> to be associated with this <see cref="ScopeManager"/>.</param>
         public PerWebRequestScopeManager(IServiceFactory serviceFactory) : base(serviceFactory)
         {           
+            DefaultScope = new Scope(this, null);
         }
 
         /// <summary>
@@ -127,7 +129,13 @@ namespace LightInject.Web
         public override Scope CurrentScope
         {
             get { return GetOrAddScope(); }
-            set { HttpContext.Current.Items[Key] = value; }
+            set 
+            {
+                if (HttpContext.Current != null)
+                {
+                    HttpContext.Current.Items[Key] = value;
+                }
+            }
         }
 
         /// <summary>
@@ -135,16 +143,25 @@ namespace LightInject.Web
         /// </summary>
         public static void EndContextScope()
         {
-            var scope = (Scope)HttpContext.Current.Items[Key];
-            if (scope != null)
+            if (HttpContext.Current != null)
             {
-                scope.Dispose();
-                HttpContext.Current.Items[Key] = null;                
+                var scope = (Scope)HttpContext.Current.Items[Key];
+                if (scope != null)
+                {
+                    scope.Dispose();
+                    HttpContext.Current.Items[Key] = null;                
+                }
             }
         }
 
         private Scope GetOrAddScope()
         {            
+            // use global scope if httpcontext isn't set - this will happen for background jobs
+            if (HttpContext.Current == null)
+            {
+                return DefaultScope;
+            }
+
             var scope = (Scope)HttpContext.Current.Items[Key];
             if (scope == null)
             {
